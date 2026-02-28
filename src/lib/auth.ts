@@ -1,47 +1,60 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import connectDB from "@/lib/mongodb";
 import { User } from "@/models/User";
+import { getServerSession } from "next-auth";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-    providers: [
+const providers: NextAuthOptions["providers"] = [];
+
+// Only add Google provider if valid credentials are configured
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+if (googleClientId && googleClientSecret && !googleClientId.startsWith("your-")) {
+    providers.push(
         GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        }),
-        CredentialsProvider({
-            name: "credentials",
-            credentials: {
-                email: { label: "Email", type: "email" },
-                password: { label: "Password", type: "password" },
-            },
-            async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) return null;
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+        })
+    );
+}
 
-                try {
-                    await connectDB();
-                    const user = await User.findOne({ email: credentials.email }).select("+password");
-                    if (!user || !user.password) return null;
+providers.push(
+    CredentialsProvider({
+        name: "credentials",
+        credentials: {
+            email: { label: "Email", type: "email" },
+            password: { label: "Password", type: "password" },
+        },
+        async authorize(credentials) {
+            if (!credentials?.email || !credentials?.password) return null;
 
-                    const isValid = await bcrypt.compare(credentials.password as string, user.password);
-                    if (!isValid) return null;
+            try {
+                await connectDB();
+                const user = await User.findOne({ email: credentials.email }).select("+password");
+                if (!user || !user.password) return null;
 
-                    return {
-                        id: user._id.toString(),
-                        name: user.name,
-                        email: user.email,
-                        image: user.image,
-                        role: user.role,
-                        subscription: user.subscription,
-                    };
-                } catch {
-                    return null;
-                }
-            },
-        }),
-    ],
+                const isValid = await bcrypt.compare(credentials.password as string, user.password);
+                if (!isValid) return null;
+
+                return {
+                    id: user._id.toString(),
+                    name: user.name,
+                    email: user.email,
+                    image: user.image,
+                    role: user.role,
+                    subscription: user.subscription,
+                };
+            } catch {
+                return null;
+            }
+        },
+    })
+);
+
+export const authOptions: NextAuthOptions = {
+    providers,
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
@@ -85,4 +98,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     session: { strategy: "jwt" },
     secret: process.env.NEXTAUTH_SECRET,
-});
+};
+
+const handler = NextAuth(authOptions);
+export { handler as handlers };
+
+export async function auth() {
+    return getServerSession(authOptions);
+}
