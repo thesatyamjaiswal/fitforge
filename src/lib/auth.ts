@@ -24,7 +24,7 @@ providers.push(
     CredentialsProvider({
         name: "credentials",
         credentials: {
-            email: { label: "Email", type: "email" },
+            email: { label: "Email or Username", type: "text" },
             password: { label: "Password", type: "password" },
         },
         async authorize(credentials) {
@@ -32,7 +32,13 @@ providers.push(
 
             try {
                 await connectDB();
-                const user = await User.findOne({ email: credentials.email }).select("+password");
+                // Check if the provided credentials "email" is either an email or a user's name
+                const user = await User.findOne({ 
+                    $or: [
+                        { email: credentials.email },
+                        { name: credentials.email }
+                    ]
+                }).select("+password");
                 if (!user || !user.password) return null;
 
                 const isValid = await bcrypt.compare(credentials.password as string, user.password);

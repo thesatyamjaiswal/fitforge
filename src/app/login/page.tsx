@@ -25,7 +25,7 @@ export default function LoginPage() {
 
         setLoading(false);
         if (res?.error) {
-            setError("Invalid email or password. Please try again.");
+            setError("Invalid username, email, or password. Please try again.");
         } else {
             router.push("/dashboard");
         }
@@ -89,11 +89,11 @@ export default function LoginPage() {
                         {/* Form */}
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-zinc-400 text-sm font-medium mb-2">Email</label>
+                                <label className="block text-zinc-400 text-sm font-medium mb-2">Email or Username</label>
                                 <input
-                                    type="email"
+                                    type="text"
                                     className="input-field"
-                                    placeholder="you@example.com"
+                                    placeholder="your_username or you@example.com"
                                     value={form.email}
                                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                                     required
